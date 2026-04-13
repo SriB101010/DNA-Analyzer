@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATGo — DNA Sequence Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --accent: #00d4aa;
+    --accent2: #6366f1;
+    --accent3: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --A: #4ade80;
+    --T: #f87171;
+    --G: #60a5fa;
+    --C: #fbbf24;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+  .header {
+    background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #042f2e 100%);
+    padding: 2rem;
+    text-align: center;
+    border-bottom: 2px solid var(--accent);
+  }
+  .header h1 {
+    font-size: 2.2rem;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.3rem;
+  }
+  .header p { color: var(--muted); font-size: 0.95rem; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    padding: 0.6rem 1.2rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+  .tab-btn.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .card h2 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    color: var(--accent);
+  }
+  .card h3 {
+    font-size: 1.1rem;
+    margin: 1rem 0 0.5rem;
+    color: var(--accent2);
+  }
+
+  /* Inputs */
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    background: #0d0f15;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem;
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    resize: vertical;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  input[type="text"] {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    background: #0d0f15;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+  input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+  /* Buttons */
+  .btn {
+    padding: 0.6rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 0.8rem;
+    margin-right: 0.5rem;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: #00eabb; transform: translateY(-1px); }
+  .btn-secondary {
+    background: var(--accent2);
+    color: #fff;
+  }
+  .btn-secondary:hover { background: #818cf8; }
+  .btn-demo {
+    background: var(--accent3);
+    color: #000;
+  }
+  .btn-demo:hover { background: #fbbf24; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Results */
+  .result-box {
+    background: #0d0f15;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem;
+    margin-top: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.8rem;
+    margin: 1rem 0;
+  }
+  .stat-item {
+    background: #0d0f15;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+  }
+  .stat-label { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+
+  /* DNA Visual */
+  .dna-visual {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin: 1rem 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+  }
+  .base {
+    width: 20px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    font-weight: 700;
+    color: #000;
+  }
+  .base-A { background: var(--A); }
+  .base-T { background: var(--T); }
+  .base-G { background: var(--G); }
+  .base-C { background: var(--C); }
+
+  /* Mutation Viewer */
+  .mutation-row {
+    display: flex;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    margin: 0.3rem 0;
+    align-items: center;
+  }
+  .mutation-label {
+    width: 80px;
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+  .mutation-bases {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1px;
+  }
+  .m-base {
+    width: 18px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    font-weight: 600;
+    font-size: 0.75rem;
+  }
+  .m-match { background: #1e293b; color: var(--text); }
+  .m-sub { background: #dc2626; color: #fff; }
+  .m-ins { background: #16a34a; color: #fff; }
+  .m-del { background: #9333ea; color: #fff; }
+  .m-gap { background: #374151; color: #6b7280; }
+
+  /* Chart container */
+  .chart-container {
+    max-width: 300px;
+    margin: 1rem auto;
+  }
+  .chart-container-bar {
+    max-width: 600px;
+    max-height: 300px;
+    margin: 1rem auto;
+  }
+
+  /* Interpretation box */
+  .interpretation {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-left: 4px solid var(--accent);
+    padding: 1rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1rem 0;
+  }
+
+  /* ORF table */
+  .orf-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+  }
+  .orf-table th {
+    background: #1e293b;
+    padding: 0.6rem;
+    text-align: left;
+    color: var(--accent);
+    border-bottom: 2px solid var(--border);
+  }
+  .orf-table td {
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .orf-table tr:hover { background: #1e293b44; }
+
+  /* Mutation legend */
+  .legend {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 0.8rem 0;
+    font-size: 0.8rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .legend-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+  }
+
+  /* NCBI fetch */
+  .fetch-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+    margin-bottom: 0.8rem;
+  }
+  .fetch-row > div { flex: 1; }
+  .fetch-row label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
+
+  .loading { color: var(--accent3); font-style: italic; }
+  .error { color: var(--danger); }
+  .success { color: var(--accent); }
+
+  /* Strand visual with pairs */
+  .strand-pair-row {
+    display: flex;
+    font-family: 'Courier New', monospace;
+    align-items: center;
+    margin: 0.15rem 0;
+    font-size: 0.75rem;
+  }
+  .strand-label {
+    width: 50px;
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 0.7rem;
+  }
+  .bond-row {
+    display: flex;
+    gap: 1px;
+    margin: 0 0 0 50px;
+  }
+  .bond {
+    width: 20px;
+    text-align: center;
+    color: #475569;
+    font-size: 0.6rem;
+  }
+
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.5rem; }
+    .tabs { gap: 0.3rem; }
+    .tab-btn { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .fetch-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>ATGo</h1>
+  <p>DNA Sequence Analyzer — From Start Codon to Discovery</p>
+</div>
+
+<div class="container">
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('gc')">GC Content</button>
+    <button class="tab-btn" onclick="switchTab('revcomp')">Reverse Complement</button>
+    <button class="tab-btn" onclick="switchTab('orf')">ORF Finder</button>
+    <button class="tab-btn" onclick="switchTab('mutation')">Mutation Detection</button>
+  </div>
+
+  <!-- ============ GC CONTENT TAB ============ -->
+  <div id="tab-gc" class="tab-content active">
+    <div class="card">
+      <h2>GC Content Analysis</h2>
+      <p style="color:var(--muted); margin-bottom:1rem;">Measures the percentage of Guanine (G) and Cytosine (C) bases — indicators of DNA stability.</p>
+
+      <div class="fetch-row">
+        <div>
+          <label>NCBI Accession Number (optional)</label>
+          <input type="text" id="gc-accession" placeholder="e.g. NM_007294.4 or NC_000017.11">
+        </div>
+        <button class="btn btn-secondary" onclick="fetchNCBI('gc')" id="gc-fetch-btn">Fetch from NCBI</button>
+      </div>
+      <div id="gc-fetch-status"></div>
+
+      <label style="font-size:0.85rem; color:var(--muted);">DNA Sequence (FASTA or raw):</label>
+      <textarea id="gc-input" placeholder=">Sequence_Name&#10;ATGCGATCGATCGTAGCTAGCATGCGA...&#10;&#10;Or just paste raw DNA: ATGCGATCG..."></textarea>
+      <button class="btn btn-primary" onclick="runGC()">Analyze GC Content</button>
+      <button class="btn btn-demo" onclick="loadDemo('gc')">Load Demo</button>
+      <div id="gc-results"></div>
+    </div>
+  </div>
+
+  <!-- ============ REVERSE COMPLEMENT TAB ============ -->
+  <div id="tab-revcomp" class="tab-content">
+    <div class="card">
+      <h2>Reverse Complement</h2>
+      <p style="color:var(--muted); margin-bottom:1rem;">Generates the complementary strand read in the opposite direction (5'→3'). Rules: A↔T, C↔G.</p>
+
+      <div class="fetch-row">
+        <div>
+          <label>NCBI Accession Number (optional)</label>
+          <input type="text" id="rc-accession" placeholder="e.g. NM_007294.4">
+        </div>
+        <button class="btn btn-secondary" onclick="fetchNCBI('rc')">Fetch from NCBI</button>
+      </div>
+      <div id="rc-fetch-status"></div>
+
+      <label style="font-size:0.85rem; color:var(--muted);">DNA Sequence:</label>
+      <textarea id="rc-input" placeholder="Paste FASTA or raw DNA sequence..."></textarea>
+      <button class="btn btn-primary" onclick="runRevComp()">Get Reverse Complement</button>
+      <button class="btn btn-demo" onclick="loadDemo('rc')">Load Demo</button>
+      <div id="rc-results"></div>
+    </div>
+  </div>
+
+  <!-- ============ ORF FINDER TAB ============ -->
+  <div id="tab-orf" class="tab-content">
+    <div class="card">
+      <h2>Open Reading Frame (ORF) Finder</h2>
+      <p style="color:var(--muted); margin-bottom:1rem;">Finds potential protein-coding regions: starts with ATG, ends with a stop codon (TAA/TAG/TGA), read in codons (groups of 3).</p>
+
+      <div class="fetch-row">
+        <div>
+          <label>NCBI Accession Number (optional)</label>
+          <input type="text" id="orf-accession" placeholder="e.g. NM_007294.4">
+        </div>
+        <button class="btn btn-secondary" onclick="fetchNCBI('orf')">Fetch from NCBI</button>
+      </div>
+      <div id="orf-fetch-status"></div>
+
+      <label style="font-size:0.85rem; color:var(--muted);">DNA Sequence:</label>
+      <textarea id="orf-input" placeholder="Paste FASTA or raw DNA sequence..."></textarea>
+      <div style="margin-top:0.5rem;">
+        <label style="font-size:0.85rem; color:var(--muted);">Minimum ORF length (bases): </label>
+        <input type="text" id="orf-min" value="30" style="width:80px; display:inline-block;">
+      </div>
+      <button class="btn btn-primary" onclick="runORF()">Find ORFs</button>
+      <button class="btn btn-demo" onclick="loadDemo('orf')">Load Demo</button>
+      <div id="orf-results"></div>
+    </div>
+  </div>
+
+  <!-- ============ MUTATION DETECTION TAB ============ -->
+  <div id="tab-mutation" class="tab-content">
+    <div class="card">
+      <h2>Mutation Detection</h2>
+      <p style="color:var(--muted); margin-bottom:1rem;">Compares a reference (normal) sequence to a test (patient) sequence. Detects substitutions, insertions, deletions, and frameshifts.</p>
+
+      <div class="fetch-row">
+        <div>
+          <label>Reference — NCBI Accession (optional)</label>
+          <input type="text" id="mut-ref-accession" placeholder="e.g. NM_000518.5 (HBB gene)">
+        </div>
+        <button class="btn btn-secondary" onclick="fetchNCBIMut('ref')" id="mut-ref-fetch-btn">Fetch Reference</button>
+      </div>
+      <div id="mut-ref-fetch-status"></div>
+
+      <label style="font-size:0.85rem; color:var(--muted);">Reference Sequence (normal/healthy):</label>
+      <textarea id="mut-ref" placeholder="Paste reference DNA sequence..." style="min-height:80px;"></textarea>
+
+      <div class="fetch-row" style="margin-top:0.8rem;">
+        <div>
+          <label>Test — NCBI Accession (optional)</label>
+          <input type="text" id="mut-test-accession" placeholder="e.g. NM_000518.4 (older version)">
+        </div>
+        <button class="btn btn-secondary" onclick="fetchNCBIMut('test')" id="mut-test-fetch-btn">Fetch Test</button>
+      </div>
+      <div id="mut-test-fetch-status"></div>
+
+      <label style="font-size:0.85rem; color:var(--muted); margin-top:0.8rem; display:block;">Test Sequence (patient/sample):</label>
+      <textarea id="mut-test" placeholder="Paste test DNA sequence..." style="min-height:80px;"></textarea>
+
+      <button class="btn btn-primary" onclick="runMutation()">Detect Mutations</button>
+      <button class="btn btn-demo" onclick="loadDemo('mutation')">Load Demo</button>
+      <div id="mut-results"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + tabName).classList.add('active');
+}
+
+// ============================================================
+// FASTA PARSER
+// ============================================================
+function parseFasta(text) {
+  const lines = text.trim().split('\n');
+  let header = '';
+  let seqParts = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('>')) {
+      header = trimmed.slice(1).trim();
+    } else if (trimmed) {
+      seqParts.push(trimmed.toUpperCase().replace(/[^ATGC]/g, ''));
+    }
+  }
+  return { header: header || 'User Input', sequence: seqParts.join('') };
+}
+
+// ============================================================
+// NCBI GENBANK FETCH
+// ============================================================
+async function fetchNCBI(target) {
+  const inputMap = { gc: 'gc-accession', rc: 'rc-accession', orf: 'orf-accession' };
+  const textMap = { gc: 'gc-input', rc: 'rc-input', orf: 'orf-input' };
+  const statusMap = { gc: 'gc-fetch-status', rc: 'rc-fetch-status', orf: 'orf-fetch-status' };
+
+  const accession = document.getElementById(inputMap[target]).value.trim();
+  const statusEl = document.getElementById(statusMap[target]);
+
+  if (!accession) {
+    statusEl.innerHTML = '<span class="error">Please enter an accession number.</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span class="loading">Fetching from NCBI GenBank...</span>';
+
+  try {
+    // Use NCBI E-utilities efetch API to get FASTA
+    const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nucleotide&id=${encodeURIComponent(accession)}&rettype=fasta&retmode=text`;
+    const response = await fetch(url);
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const fastaText = await response.text();
+
+    if (fastaText.includes('Error') || fastaText.includes('Failed') || !fastaText.startsWith('>')) {
+      throw new Error('Invalid accession number or sequence not found.');
+    }
+
+    document.getElementById(textMap[target]).value = fastaText.trim();
+    const parsed = parseFasta(fastaText);
+    statusEl.innerHTML = `<span class="success">Fetched: ${parsed.header} (${parsed.sequence.length.toLocaleString()} bases)</span>`;
+  } catch (err) {
+    statusEl.innerHTML = `<span class="error">Error: ${err.message}. Check the accession number and try again.</span>`;
+  }
+}
+
+// NCBI fetch for Mutation Detection tab (ref or test)
+async function fetchNCBIMut(which) {
+  const accessionId = which === 'ref' ? 'mut-ref-accession' : 'mut-test-accession';
+  const textareaId = which === 'ref' ? 'mut-ref' : 'mut-test';
+  const statusId = which === 'ref' ? 'mut-ref-fetch-status' : 'mut-test-fetch-status';
+
+  const accession = document.getElementById(accessionId).value.trim();
+  const statusEl = document.getElementById(statusId);
+
+  if (!accession) {
+    statusEl.innerHTML = '<span class="error">Please enter an accession number.</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span class="loading">Fetching from NCBI GenBank...</span>';
+
+  try {
+    const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nucleotide&id=${encodeURIComponent(accession)}&rettype=fasta&retmode=text`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const fastaText = await response.text();
+    if (fastaText.includes('Error') || fastaText.includes('Failed') || !fastaText.startsWith('>')) {
+      throw new Error('Invalid accession number or sequence not found.');
+    }
+    document.getElementById(textareaId).value = fastaText.trim();
+    const parsed = parseFasta(fastaText);
+    statusEl.innerHTML = `<span class="success">Fetched: ${parsed.header} (${parsed.sequence.length.toLocaleString()} bases)</span>`;
+  } catch (err) {
+    statusEl.innerHTML = `<span class="error">Error: ${err.message}. Check the accession number and try again.</span>`;
+  }
+}
+
+// ============================================================
+// DNA VISUAL STRAND BUILDER
+// ============================================================
+function buildDNAVisual(seq, maxBases) {
+  const show = seq.slice(0, maxBases || 200);
+  let html = '<div class="dna-visual">';
+  for (const base of show) {
+    html += `<div class="base base-${base}">${base}</div>`;
+  }
+  if (seq.length > (maxBases || 200)) html += `<span style="color:var(--muted); align-self:center; margin-left:4px;">... +${(seq.length - (maxBases||200)).toLocaleString()} more</span>`;
+  html += '</div>';
+  return html;
+}
+
+function buildDoubleStrand(seq, maxBases) {
+  const comp = { A:'T', T:'A', G:'C', C:'G' };
+  const bonds = { A:'||', T:'||', G:'|||', C:'|||' };
+  const show = seq.slice(0, maxBases || 100);
+  const compSeq = show.split('').map(b => comp[b] || '?').join('');
+
+  let html = `<div style="margin:1rem 0;">`;
+  // 5' strand
+  html += `<div class="strand-pair-row"><span class="strand-label">5'→3'</span><div class="dna-visual">`;
+  for (const b of show) html += `<div class="base base-${b}">${b}</div>`;
+  html += `</div></div>`;
+  // Bond row
+  html += `<div class="bond-row">`;
+  for (const b of show) html += `<div class="bond">${bonds[b]}</div>`;
+  html += `</div>`;
+  // 3' strand
+  html += `<div class="strand-pair-row"><span class="strand-label">3'→5'</span><div class="dna-visual">`;
+  for (const b of compSeq) html += `<div class="base base-${b}">${b}</div>`;
+  html += `</div></div>`;
+
+  if (seq.length > (maxBases||100)) html += `<p style="color:var(--muted); font-size:0.8rem; margin-top:0.3rem;">Showing first ${maxBases||100} of ${seq.length.toLocaleString()} bases</p>`;
+  html += `</div>`;
+  return html;
+}
+
+// ============================================================
+// GC CONTENT
+// ============================================================
+function runGC() {
+  const { header, sequence } = parseFasta(document.getElementById('gc-input').value);
+  if (!sequence) { document.getElementById('gc-results').innerHTML = '<p class="error" style="margin-top:1rem;">Please enter a DNA sequence.</p>'; return; }
+
+  const total = sequence.length;
+  const counts = { A:0, T:0, G:0, C:0 };
+  for (const b of sequence) counts[b] = (counts[b]||0) + 1;
+  const gc = ((counts.G + counts.C) / total * 100).toFixed(2);
+  const at = (100 - gc).toFixed(2);
+
+  // Interpretation
+  let interp = '';
+  if (gc > 65) interp = 'Very high GC — extremely stable DNA. Typical of thermophilic organisms (heat-loving bacteria) that live in hot springs.';
+  else if (gc > 55) interp = 'High GC — stable DNA. Common in soil bacteria like Streptomyces (these bacteria produce many antibiotics!).';
+  else if (gc > 45) interp = 'Moderate GC — normal range for many organisms. Many bacteria and some eukaryotes fall here.';
+  else if (gc > 35) interp = 'Moderate-low GC — normal for many animals. The human genome is about 41% GC.';
+  else interp = 'Low GC — AT-rich DNA, less thermally stable. Seen in parasitic organisms like Mycoplasma and Plasmodium (malaria).';
+
+  let html = `
+    <h3>${header}</h3>
+    <div class="stat-grid">
+      <div class="stat-item"><div class="stat-value" style="color:var(--accent)">${gc}%</div><div class="stat-label">GC Content</div></div>
+      <div class="stat-item"><div class="stat-value">${total.toLocaleString()}</div><div class="stat-label">Total Bases</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:var(--A)">${counts.A.toLocaleString()}</div><div class="stat-label">Adenine (A)</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:var(--T)">${counts.T.toLocaleString()}</div><div class="stat-label">Thymine (T)</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:var(--G)">${counts.G.toLocaleString()}</div><div class="stat-label">Guanine (G)</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:var(--C)">${counts.C.toLocaleString()}</div><div class="stat-label">Cytosine (C)</div></div>
+    </div>
+    <div class="interpretation">${interp}</div>
+    <div class="chart-container"><canvas id="gc-chart"></canvas></div>
+    <h3>DNA Sequence Visual</h3>
+    ${buildDNAVisual(sequence, 200)}
+  `;
+  document.getElementById('gc-results').innerHTML = html;
+
+  // Pie chart
+  new Chart(document.getElementById('gc-chart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Adenine (A)', 'Thymine (T)', 'Guanine (G)', 'Cytosine (C)'],
+      datasets: [{ data: [counts.A, counts.T, counts.G, counts.C], backgroundColor: ['#4ade80','#f87171','#60a5fa','#fbbf24'], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position:'bottom', labels:{ color:'#e2e8f0', padding:12 } },
+        title: { display:true, text:'Base Composition', color:'#e2e8f0' }
+      }
+    }
+  });
+}
+
+// ============================================================
+// REVERSE COMPLEMENT
+// ============================================================
+function reverseComplement(seq) {
+  const comp = { A:'T', T:'A', G:'C', C:'G' };
+  return seq.split('').map(b => comp[b]||b).reverse().join('');
+}
+
+function runRevComp() {
+  const { header, sequence } = parseFasta(document.getElementById('rc-input').value);
+  if (!sequence) { document.getElementById('rc-results').innerHTML = '<p class="error" style="margin-top:1rem;">Please enter a DNA sequence.</p>'; return; }
+
+  const revComp = reverseComplement(sequence);
+
+  let html = `
+    <h3>${header} — Double Strand Visualization</h3>
+    <p style="color:var(--muted); font-size:0.85rem;">Top strand: your input (5'→3'). Bottom strand: complement (3'→5'). ||| = G-C bond (3 H-bonds, stronger), || = A-T bond (2 H-bonds).</p>
+    ${buildDoubleStrand(sequence, 100)}
+    <h3>Reverse Complement (5'→3')</h3>
+    ${buildDNAVisual(revComp, 200)}
+    <div class="result-box" style="margin-top:1rem;">
+      <strong>Full Reverse Complement (${revComp.length.toLocaleString()} bases):</strong>\n\n`;
+
+  // Print in lines of 60
+  for (let i = 0; i < revComp.length; i += 60) {
+    html += revComp.slice(i, i+60) + '\n';
+  }
+  html += `</div>`;
+  document.getElementById('rc-results').innerHTML = html;
+}
+
+// ============================================================
+// ORF FINDER
+// ============================================================
+const CODON_TABLE = {
+  'TTT':'F','TTC':'F','TTA':'L','TTG':'L','CTT':'L','CTC':'L','CTA':'L','CTG':'L',
+  'ATT':'I','ATC':'I','ATA':'I','ATG':'M','GTT':'V','GTC':'V','GTA':'V','GTG':'V',
+  'TCT':'S','TCC':'S','TCA':'S','TCG':'S','CCT':'P','CCC':'P','CCA':'P','CCG':'P',
+  'ACT':'T','ACC':'T','ACA':'T','ACG':'T','GCT':'A','GCC':'A','GCA':'A','GCG':'A',
+  'TAT':'Y','TAC':'Y','TAA':'*','TAG':'*','TGT':'C','TGC':'C','TGA':'*','TGG':'W',
+  'CGT':'R','CGC':'R','CGA':'R','CGG':'R','AGT':'S','AGC':'S','AGA':'R','AGG':'R',
+  'GAT':'D','GAC':'D','GAA':'E','GAG':'E','GGT':'G','GGC':'G','GGA':'G','GGG':'G'
+};
+
+function translateDNA(dna) {
+  let protein = '';
+  for (let i = 0; i <= dna.length - 3; i += 3) {
+    const codon = dna.slice(i, i+3);
+    const aa = CODON_TABLE[codon] || '?';
+    if (aa === '*') break;
+    protein += aa;
+  }
+  return protein;
+}
+
+function findORFs(seq, minLen) {
+  const stops = new Set(['TAA','TAG','TGA']);
+  const orfs = [];
+  for (let frame = 0; frame < 3; frame++) {
+    let i = frame;
+    while (i < seq.length - 2) {
+      const codon = seq.slice(i, i+3);
+      if (codon === 'ATG') {
+        let j = i + 3;
+        let found = false;
+        while (j <= seq.length - 3) {
+          const nc = seq.slice(j, j+3);
+          if (stops.has(nc)) {
+            const orfSeq = seq.slice(i, j+3);
+            if (orfSeq.length >= minLen) {
+              orfs.push({ frame: frame+1, start: i+1, end: j+3, length: orfSeq.length, codons: Math.floor(orfSeq.length/3), protein: translateDNA(orfSeq), dna: orfSeq });
+            }
+            i = j + 3;
+            found = true;
+            break;
+          }
+          j += 3;
+        }
+        if (!found) i += 3;
+      } else {
+        i += 3;
+      }
+    }
+  }
+  orfs.sort((a,b) => b.length - a.length);
+  return orfs;
+}
+
+function runORF() {
+  const { header, sequence } = parseFasta(document.getElementById('orf-input').value);
+  const minLen = parseInt(document.getElementById('orf-min').value) || 30;
+  if (!sequence) { document.getElementById('orf-results').innerHTML = '<p class="error" style="margin-top:1rem;">Please enter a DNA sequence.</p>'; return; }
+
+  const forwardORFs = findORFs(sequence, minLen).map(o => ({...o, strand:'+'}));
+  const revComp = reverseComplement(sequence);
+  const reverseORFs = findORFs(revComp, minLen).map(o => ({...o, strand:'-'}));
+  const allORFs = [...forwardORFs, ...reverseORFs].sort((a,b) => b.length - a.length);
+
+  let html = `<h3>${header} — ${allORFs.length} ORF(s) Found</h3>`;
+
+  // Beginner-friendly explanation
+  html += `<div class="interpretation" style="margin-bottom:1rem;">
+    <strong>What are ORFs?</strong> An Open Reading Frame is a stretch of DNA that <em>could</em> code for a protein.
+    Each ORF starts with <strong>ATG</strong> (start codon) and ends with a stop codon (<strong>TAA, TAG, or TGA</strong>).
+    Longer ORFs are more likely to be real genes. The protein column shows what amino acid sequence this DNA would produce.
+  </div>`;
+
+  if (allORFs.length === 0) {
+    html += `<div class="interpretation">No ORFs found with minimum length ${minLen} bases. Try a longer sequence or lower the minimum.</div>`;
+  } else {
+    // Bar chart
+    html += `<div class="chart-container-bar"><canvas id="orf-chart"></canvas></div>`;
+
+    // Guide to reading the table
+    html += `<div class="interpretation" style="margin-bottom:0.5rem; font-size:0.85rem;">
+      <strong>How to read the table below:</strong><br>
+      <strong>Strand:</strong> + means the gene is on the forward (original) strand; - means it's on the reverse complement strand.<br>
+      <strong>Frame:</strong> DNA is read in groups of 3 (codons). Frame 1/2/3 means reading starts at position 1, 2, or 3 — shifting by one base gives completely different proteins.<br>
+      <strong>Start/End:</strong> The base positions where this ORF begins and ends in the sequence.<br>
+      <strong>Length:</strong> bp = base pairs (DNA letters), aa = amino acids (protein letters). Every 3 bp = 1 aa.<br>
+      <strong>Protein:</strong> The translated amino acid sequence using single-letter codes (M = Methionine/start, L = Leucine, G = Glycine, etc.).
+    </div>`;
+
+    // Table
+    html += `<table class="orf-table">
+      <thead><tr><th>#</th><th>Strand</th><th>Frame</th><th>Start</th><th>End</th><th>Length</th><th>Protein</th></tr></thead><tbody>`;
+    allORFs.forEach((orf, i) => {
+      const protPreview = orf.protein.length > 30 ? orf.protein.slice(0,30) + '...' : orf.protein;
+      // Likelihood assessment
+      let likelihood = '';
+      if (orf.protein.length >= 100) likelihood = '<span style="color:var(--accent);" title="ORFs over 100 amino acids are very likely real genes">Very likely a gene</span>';
+      else if (orf.protein.length >= 50) likelihood = '<span style="color:var(--accent3);" title="ORFs 50-100 amino acids could be real genes">Possibly a gene</span>';
+      else likelihood = '<span style="color:var(--muted);" title="Short ORFs may occur by chance">Short — may be random</span>';
+
+      html += `<tr>
+        <td>${i+1}</td>
+        <td>${orf.strand === '+' ? '+ (forward)' : '- (reverse)'}</td>
+        <td>${orf.frame}</td>
+        <td>${orf.start.toLocaleString()}</td>
+        <td>${orf.end.toLocaleString()}</td>
+        <td>${orf.length} bp (${orf.protein.length} aa)<br><small>${likelihood}</small></td>
+        <td style="font-family:monospace; font-size:0.8rem;">${protPreview}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+
+    // Summary interpretation
+    const longest = allORFs[0];
+    html += `<div class="interpretation" style="margin-top:1rem;">
+      <strong>Summary:</strong> Found ${allORFs.length} potential protein-coding regions.
+      The longest ORF is ${longest.length} bp (${longest.protein.length} amino acids) on the ${longest.strand === '+' ? 'forward' : 'reverse'} strand in reading frame ${longest.frame}.
+      ${longest.protein.length >= 100 ? 'This is long enough to very likely be a real gene.' : longest.protein.length >= 50 ? 'This could potentially be a real gene.' : 'These ORFs are relatively short — they may or may not be real genes.'}
+    </div>`;
+  }
+
+  document.getElementById('orf-results').innerHTML = html;
+
+  // Build chart
+  if (allORFs.length > 0) {
+    const labels = allORFs.map((o,i) => `ORF #${i+1} (${o.strand}F${o.frame})`);
+    const data = allORFs.map(o => o.length);
+    new Chart(document.getElementById('orf-chart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ label: 'ORF Length (bases)', data, backgroundColor: allORFs.map(o => o.strand === '+' ? '#00d4aa' : '#6366f1'), borderWidth: 0 }]
+      },
+      options: {
+        responsive: true,
+        indexAxis: 'y',
+        plugins: { legend:{display:false}, title:{display:true, text:'ORF Lengths', color:'#e2e8f0'} },
+        scales: { x:{ticks:{color:'#94a3b8'}, grid:{color:'#1e293b'}}, y:{ticks:{color:'#e2e8f0'}, grid:{display:false}} }
+      }
+    });
+  }
+}
+
+// ============================================================
+// MUTATION DETECTION
+// ============================================================
+function runMutation() {
+  const ref = parseFasta(document.getElementById('mut-ref').value).sequence;
+  const test = parseFasta(document.getElementById('mut-test').value).sequence;
+  if (!ref || !test) { document.getElementById('mut-results').innerHTML = '<p class="error" style="margin-top:1rem;">Please enter both sequences.</p>'; return; }
+
+  const maxLen = Math.max(ref.length, test.length);
+  const minLen = Math.min(ref.length, test.length);
+
+  // Find substitutions
+  const subs = [];
+  for (let i = 0; i < minLen; i++) {
+    if (ref[i] !== test[i]) subs.push({ pos: i+1, from: ref[i], to: test[i] });
+  }
+
+  // Insertions/Deletions
+  const insertions = [];
+  const deletions = [];
+  const frameshifts = [];
+
+  if (test.length > ref.length) {
+    const extra = test.length - ref.length;
+    insertions.push({ pos: ref.length+1, bases: extra, seq: test.slice(ref.length), isFrameshift: extra % 3 !== 0 });
+    if (extra % 3 !== 0) frameshifts.push({ type:'insertion', bases: extra });
+  } else if (test.length < ref.length) {
+    const missing = ref.length - test.length;
+    deletions.push({ pos: test.length+1, bases: missing, seq: ref.slice(test.length), isFrameshift: missing % 3 !== 0 });
+    if (missing % 3 !== 0) frameshifts.push({ type:'deletion', bases: missing });
+  }
+
+  const mutRate = minLen > 0 ? (subs.length / minLen * 100).toFixed(2) : 0;
+
+  // Build side-by-side viewer
+  const viewLen = Math.min(maxLen, 150);
+  let refRow = '', testRow = '', matchRow = '';
+  for (let i = 0; i < viewLen; i++) {
+    const rb = ref[i] || '-';
+    const tb = test[i] || '-';
+    let cls = 'm-match';
+    if (rb === '-') cls = 'm-ins';
+    else if (tb === '-') cls = 'm-del';
+    else if (rb !== tb) cls = 'm-sub';
+    refRow += `<div class="m-base ${rb === '-' ? 'm-gap' : 'm-match'}">${rb}</div>`;
+    testRow += `<div class="m-base ${cls}">${tb}</div>`;
+    matchRow += `<div class="m-base" style="background:transparent; color:${cls==='m-match'?'#475569':'#ef4444'}; font-size:0.7rem;">${cls==='m-match'?'|':'X'}</div>`;
+  }
+
+  // Calculate total inserted/deleted BASES (not just event count)
+  const totalInsertedBases = insertions.reduce((sum, ins) => sum + ins.bases, 0);
+  const totalDeletedBases = deletions.reduce((sum, del) => sum + del.bases, 0);
+
+  let html = `
+    <h3>Mutation Analysis Results</h3>
+    <div class="stat-grid">
+      <div class="stat-item"><div class="stat-value" style="color:${subs.length > 0 ? 'var(--danger)':'var(--accent)'}">${subs.length}</div><div class="stat-label">Substitutions</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:${totalInsertedBases > 0 ? '#16a34a':'var(--accent)'}">${totalInsertedBases}</div><div class="stat-label">Bases Inserted</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:${totalDeletedBases > 0 ? '#9333ea':'var(--accent)'}">${totalDeletedBases}</div><div class="stat-label">Bases Deleted</div></div>
+      <div class="stat-item"><div class="stat-value" style="color:${frameshifts.length > 0 ? 'var(--danger)':'var(--accent)'}">${frameshifts.length}</div><div class="stat-label">Frameshifts</div></div>
+      <div class="stat-item"><div class="stat-value">${mutRate}%</div><div class="stat-label">Substitution Rate</div></div>
+      <div class="stat-item"><div class="stat-value">${ref.length.toLocaleString()}</div><div class="stat-label">Ref Length</div></div>
+      <div class="stat-item"><div class="stat-value">${test.length.toLocaleString()}</div><div class="stat-label">Test Length</div></div>
+    </div>
+    ${mutRate > 50 ? '<div class="interpretation" style="border-left-color:var(--danger);">Very high substitution rate (>50%). This usually means these are <strong>different genes or very different sequences</strong>. For meaningful mutation detection, compare the <strong>same gene</strong> from two sources (e.g., healthy vs patient version of HBB).</div>' : ''}
+    ${mutRate > 10 && mutRate <= 50 ? '<div class="interpretation" style="border-left-color:var(--accent3);">Moderate substitution rate. These sequences share some similarity but have significant differences. They may be related genes or distant variants.</div>' : ''}
+
+    <h3>Side-by-Side Alignment</h3>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-color" style="background:#1e293b;"></div> Match</div>
+      <div class="legend-item"><div class="legend-color" style="background:#dc2626;"></div> Substitution</div>
+      <div class="legend-item"><div class="legend-color" style="background:#16a34a;"></div> Insertion</div>
+      <div class="legend-item"><div class="legend-color" style="background:#9333ea;"></div> Deletion</div>
+    </div>
+    <div style="overflow-x:auto;">
+      <div class="mutation-row"><span class="mutation-label">Reference</span><div class="mutation-bases">${refRow}</div></div>
+      <div class="mutation-row"><span class="mutation-label">Match</span><div class="mutation-bases">${matchRow}</div></div>
+      <div class="mutation-row"><span class="mutation-label">Test</span><div class="mutation-bases">${testRow}</div></div>
+    </div>
+    ${viewLen < maxLen ? `<p style="color:var(--muted); font-size:0.8rem;">Showing first ${viewLen} of ${maxLen} positions</p>` : ''}
+  `;
+
+  // Substitution details
+  if (subs.length > 0) {
+    html += `<h3>Substitution Details</h3><div class="result-box">`;
+    subs.forEach(s => { html += `Position ${s.pos}: ${s.from} → ${s.to}\n`; });
+    html += `</div>`;
+  }
+
+  // Insertion details
+  if (insertions.length > 0) {
+    html += `<h3>Insertion Details</h3>`;
+    insertions.forEach(ins => {
+      html += `<div class="interpretation" style="border-left-color:#16a34a;">
+        At position ${ins.pos}: +${ins.bases} base(s) inserted: <code>${ins.seq.slice(0,50)}${ins.seq.length>50?'...':''}</code>
+        ${ins.isFrameshift ? '<br><strong style="color:var(--danger);">FRAMESHIFT: Not a multiple of 3 — shifts the reading frame!</strong>' : ''}
+      </div>`;
+    });
+  }
+
+  // Deletion details
+  if (deletions.length > 0) {
+    html += `<h3>Deletion Details</h3>`;
+    deletions.forEach(del => {
+      html += `<div class="interpretation" style="border-left-color:#9333ea;">
+        At position ${del.pos}: -${del.bases} base(s) deleted: <code>${del.seq.slice(0,50)}${del.seq.length>50?'...':''}</code>
+        ${del.isFrameshift ? '<br><strong style="color:var(--danger);">FRAMESHIFT: Not a multiple of 3 — shifts the reading frame!</strong>' : ''}
+      </div>`;
+    });
+  }
+
+  // Frameshift warning
+  if (frameshifts.length > 0) {
+    html += `<div class="interpretation" style="border-left-color:var(--danger); margin-top:1rem;">
+      <strong style="color:var(--danger);">FRAMESHIFT WARNING</strong><br>
+      Frameshifts change the reading frame of ALL downstream codons. This usually produces a completely different (nonfunctional) protein — a common cause of genetic diseases.
+    </div>`;
+  }
+
+  if (subs.length === 0 && insertions.length === 0 && deletions.length === 0) {
+    html += `<div class="interpretation" style="border-left-color:var(--accent);"><strong>No mutations detected — sequences are identical!</strong></div>`;
+  }
+
+  document.getElementById('mut-results').innerHTML = html;
+}
+
+// ============================================================
+// DEMO DATA
+// ============================================================
+const DEMO_SEQ = `>BRCA1_Exon11_Fragment (Human Breast Cancer Gene)
+ATGGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAATGCTATGCAGAAAATCTTAGAGTGTCCCATCTGT
+CTGGAGTTGATCAAGGAACCTGTCTCCACAAAGTGTGACCACATATTTTGCAAATTTTGCATGCTGAAACTTCTCAACCAG
+AAGAAAGGGCCTTCACAGTGTCCTTTATGTAAGAATGATATAACCAAAAGGAGCCTACAAGAAAGTACGAGAT`;
+
+function loadDemo(tab) {
+  if (tab === 'gc') {
+    document.getElementById('gc-input').value = DEMO_SEQ;
+  } else if (tab === 'rc') {
+    document.getElementById('rc-input').value = DEMO_SEQ;
+  } else if (tab === 'orf') {
+    document.getElementById('orf-input').value = DEMO_SEQ;
+  } else if (tab === 'mutation') {
+    document.getElementById('mut-ref').value =  'ATGGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAATGCTATGCAGAAAATCTTAGAGTGTCCCATCTGT';
+    document.getElementById('mut-test').value = 'ATGGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAATGCTATGCAGAAAATCTTAGAGTGTCCCATCTGTAA';
+  }
+}
+</script>
+</body>
+</html>
